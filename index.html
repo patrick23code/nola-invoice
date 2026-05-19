@@ -147,23 +147,19 @@
   }
 
   .logo-img {
-    height: 70px;
-    width: auto;
+    width: 200px;
+    max-height: 80px;
+    height: auto;
     object-fit: contain;
     display: block;
   }
-  .logo-placeholder {
-    height: 70px;
-    width: 140px;
-    background: #e8edf5;
-    border: 2px dashed #a0b4cc;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    color: #7a94b0;
-    font-weight: 600;
+  .logo-fallback-text {
+    font-size: 14px;
+    font-weight: 900;
+    color: #1e3a5f;
+    text-align: right;
+    letter-spacing: 1px;
+    line-height: 1.3;
   }
 
   /* Form styles */
@@ -351,6 +347,20 @@
           <label for="mark-paid" class="text-sm font-semibold text-gray-700 cursor-pointer select-none">Mark as PAID</label>
         </div>
 
+        <!-- Payment Method -->
+        <div>
+          <label class="form-label" for="payment-method">Payment Method</label>
+          <select class="form-input" id="payment-method" onchange="renderPreview()">
+            <option>Check</option>
+            <option>Cash</option>
+            <option>Credit Card</option>
+            <option>Bank Transfer</option>
+            <option>Zelle</option>
+            <option>Venmo</option>
+            <option>Other</option>
+          </select>
+        </div>
+
         <!-- Download -->
         <button class="download-btn" id="download-btn" onclick="downloadPDF()">
           Download PDF
@@ -379,9 +389,30 @@
 // ─── State ───────────────────────────────────────────────────────────────────
 let docType = 'receipt';
 let lineItems = [{ desc: '', amount: '' }];
+let logoDataUrl = null;
+
+// ─── Logo Preload ─────────────────────────────────────────────────────────────
+function preloadLogo() {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() {
+      try {
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        c.getContext('2d').drawImage(img, 0, 0);
+        logoDataUrl = c.toDataURL('image/png');
+      } catch(e) { /* tainted canvas — stay null, use text fallback */ }
+      resolve();
+    };
+    img.onerror = () => resolve();
+    img.src = './logo.png?' + Date.now();
+  });
+}
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-(function init() {
+(async function init() {
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -389,6 +420,7 @@ let lineItems = [{ desc: '', amount: '' }];
   document.getElementById('doc-number').value = `${yyyy}${mm}${dd}`;
   document.getElementById('doc-date').value = `${mm}/${dd}/${yyyy}`;
   renderLineItems();
+  await preloadLogo();
   renderPreview();
   window.addEventListener('resize', scalePreview);
 })();
@@ -472,6 +504,7 @@ function getFormData() {
     custAddr1: document.getElementById('cust-addr1').value.trim(),
     custAddr2: document.getElementById('cust-addr2').value.trim(),
     paid: document.getElementById('mark-paid').checked,
+    paymentMethod: document.getElementById('payment-method').value,
     lines: lineItems.map(l => ({ desc: l.desc || '', amount: parseFloat(l.amount) || 0 })),
   };
 }
@@ -493,10 +526,9 @@ function buildDocHTML(data) {
     ? `<div class="paid-stamp">PAID</div>`
     : '';
 
-  const logoHTML = `
-    <img class="logo-img" src="./logo.png" alt="Nola Solar Energy"
-      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-    <div class="logo-placeholder" style="display:none">LOGO</div>`;
+  const logoHTML = logoDataUrl
+    ? `<img style="width:200px;max-height:80px;height:auto;object-fit:contain;display:block" src="${logoDataUrl}" alt="Nola Solar Energy">`
+    : `<div class="logo-fallback-text">NOLA SOLAR<br>ENERGY</div>`;
 
   return `
     <div id="doc" style="font-family:Arial,Helvetica,sans-serif;width:816px;min-height:1056px;
@@ -554,8 +586,16 @@ function buildDocHTML(data) {
         <span class="total-amount">${formatMoney(total)}</span>
       </div>
 
-      <!-- Thank You -->
-      <div class="thank-you">Thank you!</div>
+      <!-- Bottom row: Thank You + optional T&C -->
+      <div style="display:flex;align-items:center;margin-top:40px;gap:0">
+        <div style="flex:1;font-family:'Sacramento',cursive;font-size:36px;color:#1e3a5f;line-height:1">Thank you!</div>
+        ${data.paid ? `
+        <div style="width:2px;background:#c0392b;align-self:stretch;margin:0 24px;flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-size:10px;font-weight:800;color:#c0392b;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px">Terms &amp; Conditions</div>
+          <div style="font-size:13px;color:#444">Paid by ${esc(data.paymentMethod)}</div>
+        </div>` : ''}
+      </div>
 
       ${paidHTML}
     </div>`;
