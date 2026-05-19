@@ -129,22 +129,7 @@
     margin-top: 40px;
   }
 
-  .paid-stamp {
-    position: absolute;
-    bottom: 130px;
-    right: 72px;
-    border: 5px solid var(--red);
-    color: var(--red);
-    font-size: 42px;
-    font-weight: 900;
-    letter-spacing: 8px;
-    padding: 6px 18px;
-    text-transform: uppercase;
-    transform: rotate(-15deg);
-    opacity: 0.82;
-    display: inline-block;
-    pointer-events: none;
-  }
+  /* paid-stamp now rendered inline in buildDocHTML */
 
   .logo-img {
     width: 200px;
@@ -517,14 +502,10 @@ function buildDocHTML(data) {
 
   const rowsHTML = data.lines.map(l => `
     <div class="table-row">
-      <span style="flex:1;padding-right:12px">${esc(l.desc) || '&nbsp;'}</span>
-      <span style="min-width:110px;text-align:right;font-weight:600">${formatMoney(l.amount)}</span>
+      <span style="flex:1;text-align:left;padding-right:24px">${esc(l.desc) || '&nbsp;'}</span>
+      <span style="width:140px;flex-shrink:0;text-align:right;font-weight:600">${formatMoney(l.amount)}</span>
     </div>
   `).join('<div class="red-line"></div>');
-
-  const paidHTML = data.paid
-    ? `<div class="paid-stamp">PAID</div>`
-    : '';
 
   const logoHTML = logoDataUrl
     ? `<img style="width:200px;max-height:80px;height:auto;object-fit:contain;display:block" src="${logoDataUrl}" alt="Nola Solar Energy">`
@@ -538,34 +519,34 @@ function buildDocHTML(data) {
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
           <div class="doc-title">${title}</div>
-          <div class="company-block" style="margin-top:10px">
+          <div class="company-block" style="margin-top:18px">
             <div class="company-name">NOLA SOLAR ENERGY</div>
-            <div class="company-info">
+            <div class="company-info" style="line-height:1.8;margin-top:4px">
               504-931-3159<br>
               2303 Governor Nicholls, 70119<br>
               New Orleans, LA
             </div>
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:16px">
           ${logoHTML}
-          <div style="text-align:right;margin-top:4px">
+          <div style="text-align:right">
             <div class="meta-label">${numLabel}</div>
-            <div class="meta-value">${esc(data.number)}</div>
-            <div class="meta-label" style="margin-top:6px">DATE</div>
+            <div class="meta-value" style="margin-bottom:10px">${esc(data.number)}</div>
+            <div class="meta-label">DATE</div>
             <div class="meta-value">${esc(data.date)}</div>
           </div>
         </div>
       </div>
 
       <!-- Divider -->
-      <div style="border-top:2px solid #1e3a5f;margin:24px 0 20px"></div>
+      <div style="border-top:2px solid #1e3a5f;margin:32px 0 24px"></div>
 
       <!-- Bill To -->
-      <div>
+      <div style="margin-bottom:8px">
         <div class="bill-to-label">Bill To</div>
-        <div class="bill-to-name">${esc(data.custName) || '&nbsp;'}</div>
-        <div class="bill-to-addr">
+        <div class="bill-to-name" style="margin-top:8px">${esc(data.custName) || '&nbsp;'}</div>
+        <div class="bill-to-addr" style="margin-top:4px;line-height:1.7">
           ${esc(data.custAddr1)}${data.custAddr1 ? '<br>' : ''}
           ${esc(data.custAddr2)}
         </div>
@@ -586,18 +567,28 @@ function buildDocHTML(data) {
         <span class="total-amount">${formatMoney(total)}</span>
       </div>
 
-      <!-- Bottom row: Thank You + optional T&C -->
-      <div style="display:flex;align-items:center;margin-top:40px;gap:0">
-        <div style="flex:1;font-family:'Sacramento',cursive;font-size:36px;color:#1e3a5f;line-height:1">Thank you!</div>
-        ${data.paid ? `
-        <div style="width:2px;background:#c0392b;align-self:stretch;margin:0 24px;flex-shrink:0"></div>
-        <div style="flex:1">
-          <div style="font-size:10px;font-weight:800;color:#c0392b;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px">Terms &amp; Conditions</div>
-          <div style="font-size:13px;color:#444">Paid by ${esc(data.paymentMethod)}</div>
-        </div>` : ''}
-      </div>
+      <!-- PAID stamp: sits inline below the total row, right-aligned -->
+      ${data.paid ? `
+      <div style="display:flex;justify-content:flex-end;margin-top:20px;margin-right:14px">
+        <div style="border:5px solid #c0392b;color:#c0392b;font-size:38px;font-weight:900;
+             letter-spacing:8px;padding:6px 18px;text-transform:uppercase;
+             transform:rotate(-15deg);opacity:0.82;display:inline-block;
+             font-family:Arial,Helvetica,sans-serif">PAID</div>
+      </div>` : '<div style="margin-top:20px"></div>'}
 
-      ${paidHTML}
+      <!-- Bottom: Thank You + optional T&C — pinned to bottom -->
+      <div style="position:absolute;bottom:56px;left:72px;right:72px">
+        <div style="border-top:1px solid #e8edf2;margin-bottom:20px"></div>
+        <div style="display:flex;align-items:center;gap:0">
+          <div style="flex:1;font-family:'Sacramento',cursive;font-size:36px;color:#1e3a5f;line-height:1">Thank you!</div>
+          ${data.paid ? `
+          <div style="width:2px;background:#c0392b;height:52px;margin:0 24px;flex-shrink:0"></div>
+          <div style="flex:1">
+            <div style="font-size:10px;font-weight:800;color:#c0392b;text-transform:uppercase;letter-spacing:2px;margin-bottom:6px">Terms &amp; Conditions</div>
+            <div style="font-size:13px;color:#444">Paid by ${esc(data.paymentMethod)}</div>
+          </div>` : ''}
+        </div>
+      </div>
     </div>`;
 }
 
