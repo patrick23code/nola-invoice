@@ -501,11 +501,11 @@ function buildDocHTML(data) {
   const total = data.lines.reduce((s, l) => s + l.amount, 0);
 
   const rowsHTML = data.lines.map(l => `
-    <div class="table-row">
-      <span style="flex:1;text-align:left;padding-right:24px">${esc(l.desc) || '&nbsp;'}</span>
-      <span style="width:140px;flex-shrink:0;text-align:right;font-weight:600">${formatMoney(l.amount)}</span>
+    <div style="display:grid;grid-template-columns:1fr 140px;padding:10px 14px;font-size:13px;border-bottom:1px solid #e8edf2;align-items:center">
+      <span style="text-align:left">${esc(l.desc) || '&nbsp;'}</span>
+      <span style="text-align:right;font-weight:600">${formatMoney(l.amount)}</span>
     </div>
-  `).join('<div class="red-line"></div>');
+  `).join('<div style="height:2px;background:#c0392b;margin:0 14px"></div>');
 
   const logoHTML = logoDataUrl
     ? `<img style="width:200px;max-height:80px;height:auto;object-fit:contain;display:block" src="${logoDataUrl}" alt="Nola Solar Energy">`
@@ -553,18 +553,18 @@ function buildDocHTML(data) {
       </div>
 
       <!-- Table -->
-      <div class="table-header">
+      <div style="display:grid;grid-template-columns:1fr 140px;background:#1e3a5f;color:white;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:9px 14px;margin-top:28px">
         <span>Description</span>
-        <span>Amount</span>
+        <span style="text-align:right">Amount</span>
       </div>
-      <div class="red-line" style="margin:0"></div>
+      <div style="height:2px;background:#c0392b;margin:0"></div>
       ${rowsHTML}
 
       <!-- Total -->
       <div style="border-top:2px solid #1e3a5f;margin-top:16px"></div>
-      <div class="total-row">
-        <span class="total-label">Total</span>
-        <span class="total-amount">${formatMoney(total)}</span>
+      <div style="display:grid;grid-template-columns:1fr 140px;padding:14px 14px 0;align-items:center">
+        <span style="font-size:11px;font-weight:800;color:#1e3a5f;text-transform:uppercase;letter-spacing:2px;text-align:left">Total</span>
+        <span style="font-size:22px;font-weight:900;color:#1e3a5f;text-align:right">${formatMoney(total)}</span>
       </div>
 
       <!-- PAID stamp: sits inline below the total row, right-aligned -->
