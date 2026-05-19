@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nola Solar Energy — Invoice Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sacramento&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root { --navy: #1e3a5f; --red: #c0392b; }
+  body { font-family: 'Inter', sans-serif; background: #f8fafc; }
+
+  /* Preview panel */
+  #preview-wrapper {
+    background: white;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  /* The actual receipt/invoice document inside preview */
+  #doc {
+    width: 816px; /* 8.5in at 96dpi */
+    min-height: 1056px; /* 11in at 96dpi */
+    background: white;
+    padding: 64px 72px;
+    box-sizing: border-box;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #222;
+    position: relative;
+  }
+
+  /* Scale preview to fit the panel */
+  #preview-scaler {
+    transform-origin: top left;
+    display: block;
+  }
+
+  .doc-title {
+    font-size: 52px;
+    font-weight: 900;
+    color: var(--navy);
+    letter-spacing: 4px;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .company-block { margin-top: 6px; }
+  .company-name { font-weight: 800; font-size: 13px; color: #222; }
+  .company-info { font-size: 11.5px; color: #444; line-height: 1.6; }
+
+  .meta-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .meta-value { font-size: 13px; font-weight: 600; color: #222; }
+
+  .bill-to-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .bill-to-name { font-size: 14px; font-weight: 700; color: #222; }
+  .bill-to-addr { font-size: 12px; color: #444; line-height: 1.55; }
+
+  .table-header {
+    background: var(--navy);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 9px 14px;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 28px;
+  }
+
+  .table-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid #e8edf2;
+  }
+
+  .red-line {
+    height: 2px;
+    background: var(--red);
+    margin: 0 14px;
+  }
+
+  .total-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 14px 14px 0;
+    gap: 32px;
+  }
+  .total-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .total-amount {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--navy);
+    min-width: 130px;
+    text-align: right;
+  }
+
+  .thank-you {
+    font-family: 'Sacramento', cursive;
+    font-size: 36px;
+    color: var(--navy);
+    text-align: center;
+    margin-top: 40px;
+  }
+
+  .paid-stamp {
+    position: absolute;
+    bottom: 130px;
+    right: 72px;
+    border: 5px solid var(--red);
+    color: var(--red);
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    padding: 6px 18px;
+    text-transform: uppercase;
+    transform: rotate(-15deg);
+    opacity: 0.82;
+    display: inline-block;
+    pointer-events: none;
+  }
+
+  .logo-img {
+    height: 70px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+  }
+  .logo-placeholder {
+    height: 70px;
+    width: 140px;
+    background: #e8edf5;
+    border: 2px dashed #a0b4cc;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #7a94b0;
+    font-weight: 600;
+  }
+
+  /* Form styles */
+  .form-label { font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 4px; display: block; }
+  .form-input {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    color: #111;
+    background: white;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus { border-color: #1e3a5f; box-shadow: 0 0 0 2px rgba(30,58,95,0.12); }
+
+  .toggle-btn {
+    flex: 1;
+    padding: 9px 0;
+    font-size: 14px;
+    font-weight: 700;
+    border: 2px solid #1e3a5f;
+    background: white;
+    color: #1e3a5f;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .toggle-btn.active {
+    background: #1e3a5f;
+    color: white;
+  }
+  .toggle-btn:first-child { border-radius: 6px 0 0 6px; border-right: none; }
+  .toggle-btn:last-child { border-radius: 0 6px 6px 0; }
+
+  .line-item-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .line-desc { flex: 1; }
+  .line-amount { width: 110px; }
+  .trash-btn {
+    background: none; border: none; cursor: pointer; color: #ef4444;
+    padding: 4px; font-size: 18px; display: flex; align-items: center; flex-shrink: 0;
+  }
+  .trash-btn:hover { color: #b91c1c; }
+
+  .add-line-btn {
+    background: none;
+    border: 2px dashed #a0b4cc;
+    border-radius: 6px;
+    color: #1e3a5f;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 14px;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .add-line-btn:hover { border-color: #1e3a5f; background: #f0f5ff; }
+
+  .download-btn {
+    background: #1e3a5f;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    padding: 14px 0;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: background 0.15s;
+    -webkit-appearance: none;
+  }
+  .download-btn:hover { background: #162d4e; }
+  .download-btn:active { background: #0e1f35; }
+
+  #total-display {
+    font-size: 22px;
+    font-weight: 900;
+    color: #1e3a5f;
+    text-align: right;
+    padding: 6px 0;
+  }
+
+  /* Divider */
+  .section-divider { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
+
+  /* Checkbox */
+  .paid-check { width: 18px; height: 18px; cursor: pointer; accent-color: #c0392b; }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 3px solid rgba(255,255,255,0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Responsive scaling */
+  @media (max-width: 1100px) {
+    .preview-outer { display: none !important; }
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-2xl font-black tracking-wide" style="color:#1e3a5f">NOLA SOLAR ENERGY</h1>
+    <p class="text-sm text-gray-500 mt-1">Invoice & Receipt Generator</p>
+  </div>
+
+  <div class="flex gap-8 items-start">
+    <!-- Form Panel -->
+    <div class="w-full xl:w-96 flex-shrink-0">
+      <div class="bg-white rounded-xl shadow-md p-6 space-y-5">
+
+        <!-- Doc Type Toggle -->
+        <div>
+          <label class="form-label">Document Type</label>
+          <div class="flex">
+            <button class="toggle-btn active" id="btn-receipt" onclick="setDocType('receipt')">Receipt</button>
+            <button class="toggle-btn" id="btn-invoice" onclick="setDocType('invoice')">Invoice</button>
+          </div>
+        </div>
+
+        <hr class="section-divider">
+
+        <!-- Number + Date -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label" id="num-label">Receipt #</label>
+            <input class="form-input" id="doc-number" type="text" oninput="renderPreview()">
+          </div>
+          <div>
+            <label class="form-label">Date</label>
+            <input class="form-input" id="doc-date" type="text" placeholder="MM/DD/YYYY" oninput="renderPreview()">
+          </div>
+        </div>
+
+        <hr class="section-divider">
+
+        <!-- Bill To -->
+        <div>
+          <label class="form-label">Bill To</label>
+          <div class="space-y-2">
+            <input class="form-input" id="cust-name" type="text" placeholder="Customer Name" oninput="renderPreview()">
+            <input class="form-input" id="cust-addr1" type="text" placeholder="Address Line 1" oninput="renderPreview()">
+            <input class="form-input" id="cust-addr2" type="text" placeholder="Address Line 2 (optional)" oninput="renderPreview()">
+          </div>
+        </div>
+
+        <hr class="section-divider">
+
+        <!-- Line Items -->
+        <div>
+          <label class="form-label">Line Items</label>
+          <div id="line-items-container"></div>
+          <button class="add-line-btn mt-1" onclick="addLine()">+ Add Line</button>
+        </div>
+
+        <!-- Total -->
+        <div class="flex justify-between items-center bg-blue-50 rounded-lg px-4 py-2">
+          <span class="text-sm font-bold uppercase tracking-widest" style="color:#1e3a5f">Total</span>
+          <div id="total-display">$0.00</div>
+        </div>
+
+        <hr class="section-divider">
+
+        <!-- Paid stamp -->
+        <div class="flex items-center gap-3">
+          <input class="paid-check" type="checkbox" id="mark-paid" onchange="renderPreview()">
+          <label for="mark-paid" class="text-sm font-semibold text-gray-700 cursor-pointer select-none">Mark as PAID</label>
+        </div>
+
+        <!-- Download -->
+        <button class="download-btn" id="download-btn" onclick="downloadPDF()">
+          Download PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Preview Panel (desktop only) -->
+    <div class="preview-outer flex-1 overflow-hidden" style="display:block">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Live Preview</p>
+      <div id="preview-wrapper">
+        <div id="preview-scaler">
+          <!-- #doc is rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden off-screen doc for PDF capture -->
+<div style="position:fixed; left:-9999px; top:0; z-index:-1; pointer-events:none;">
+  <div id="doc-for-pdf"></div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let docType = 'receipt';
+let lineItems = [{ desc: '', amount: '' }];
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(function init() {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  document.getElementById('doc-number').value = `${yyyy}${mm}${dd}`;
+  document.getElementById('doc-date').value = `${mm}/${dd}/${yyyy}`;
+  renderLineItems();
+  renderPreview();
+  window.addEventListener('resize', scalePreview);
+})();
+
+// ─── Doc Type ─────────────────────────────────────────────────────────────────
+function setDocType(type) {
+  docType = type;
+  document.getElementById('btn-receipt').classList.toggle('active', type === 'receipt');
+  document.getElementById('btn-invoice').classList.toggle('active', type === 'invoice');
+  document.getElementById('num-label').textContent = type === 'receipt' ? 'Receipt #' : 'Invoice #';
+  renderPreview();
+}
+
+// ─── Line Items ───────────────────────────────────────────────────────────────
+function renderLineItems() {
+  const container = document.getElementById('line-items-container');
+  container.innerHTML = '';
+  lineItems.forEach((item, i) => {
+    const row = document.createElement('div');
+    row.className = 'line-item-row';
+    row.innerHTML = `
+      <div class="line-desc">
+        <input class="form-input" type="text" placeholder="Description"
+          value="${escAttr(item.desc)}"
+          oninput="updateLine(${i}, 'desc', this.value)">
+      </div>
+      <div class="line-amount">
+        <input class="form-input" type="number" inputmode="decimal" placeholder="0.00" min="0" step="0.01"
+          value="${escAttr(item.amount)}"
+          oninput="updateLine(${i}, 'amount', this.value)">
+      </div>
+      <button class="trash-btn" onclick="removeLine(${i})" ${lineItems.length === 1 ? 'disabled style="opacity:0.3;cursor:default"' : ''} title="Remove">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+      </button>`;
+    container.appendChild(row);
+  });
+  updateTotal();
+}
+
+function updateLine(i, field, val) {
+  lineItems[i][field] = val;
+  updateTotal();
+  renderPreview();
+}
+
+function addLine() {
+  lineItems.push({ desc: '', amount: '' });
+  renderLineItems();
+  renderPreview();
+}
+
+function removeLine(i) {
+  if (lineItems.length <= 1) return;
+  lineItems.splice(i, 1);
+  renderLineItems();
+  renderPreview();
+}
+
+function updateTotal() {
+  const total = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  document.getElementById('total-display').textContent = formatMoney(total);
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function formatMoney(n) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function escAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function getFormData() {
+  return {
+    docType,
+    number: document.getElementById('doc-number').value.trim() || '—',
+    date: document.getElementById('doc-date').value.trim() || '—',
+    custName: document.getElementById('cust-name').value.trim(),
+    custAddr1: document.getElementById('cust-addr1').value.trim(),
+    custAddr2: document.getElementById('cust-addr2').value.trim(),
+    paid: document.getElementById('mark-paid').checked,
+    lines: lineItems.map(l => ({ desc: l.desc || '', amount: parseFloat(l.amount) || 0 })),
+  };
+}
+
+// ─── Build Doc HTML ───────────────────────────────────────────────────────────
+function buildDocHTML(data) {
+  const title = data.docType === 'receipt' ? 'RECEIPT' : 'INVOICE';
+  const numLabel = data.docType === 'receipt' ? 'RECEIPT #' : 'INVOICE #';
+  const total = data.lines.reduce((s, l) => s + l.amount, 0);
+
+  const rowsHTML = data.lines.map(l => `
+    <div class="table-row">
+      <span style="flex:1;padding-right:12px">${esc(l.desc) || '&nbsp;'}</span>
+      <span style="min-width:110px;text-align:right;font-weight:600">${formatMoney(l.amount)}</span>
+    </div>
+  `).join('<div class="red-line"></div>');
+
+  const paidHTML = data.paid
+    ? `<div class="paid-stamp">PAID</div>`
+    : '';
+
+  const logoHTML = `
+    <img class="logo-img" src="./logo.png" alt="Nola Solar Energy"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+    <div class="logo-placeholder" style="display:none">LOGO</div>`;
+
+  return `
+    <div id="doc" style="font-family:Arial,Helvetica,sans-serif;width:816px;min-height:1056px;
+         background:white;padding:64px 72px;box-sizing:border-box;color:#222;position:relative;">
+
+      <!-- Top Row -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="doc-title">${title}</div>
+          <div class="company-block" style="margin-top:10px">
+            <div class="company-name">NOLA SOLAR ENERGY</div>
+            <div class="company-info">
+              504-931-3159<br>
+              2303 Governor Nicholls, 70119<br>
+              New Orleans, LA
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px">
+          ${logoHTML}
+          <div style="text-align:right;margin-top:4px">
+            <div class="meta-label">${numLabel}</div>
+            <div class="meta-value">${esc(data.number)}</div>
+            <div class="meta-label" style="margin-top:6px">DATE</div>
+            <div class="meta-value">${esc(data.date)}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div style="border-top:2px solid #1e3a5f;margin:24px 0 20px"></div>
+
+      <!-- Bill To -->
+      <div>
+        <div class="bill-to-label">Bill To</div>
+        <div class="bill-to-name">${esc(data.custName) || '&nbsp;'}</div>
+        <div class="bill-to-addr">
+          ${esc(data.custAddr1)}${data.custAddr1 ? '<br>' : ''}
+          ${esc(data.custAddr2)}
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-header">
+        <span>Description</span>
+        <span>Amount</span>
+      </div>
+      <div class="red-line" style="margin:0"></div>
+      ${rowsHTML}
+
+      <!-- Total -->
+      <div style="border-top:2px solid #1e3a5f;margin-top:16px"></div>
+      <div class="total-row">
+        <span class="total-label">Total</span>
+        <span class="total-amount">${formatMoney(total)}</span>
+      </div>
+
+      <!-- Thank You -->
+      <div class="thank-you">Thank you!</div>
+
+      ${paidHTML}
+    </div>`;
+}
+
+// ─── Preview ──────────────────────────────────────────────────────────────────
+function renderPreview() {
+  const data = getFormData();
+  const scaler = document.getElementById('preview-scaler');
+  scaler.innerHTML = buildDocHTML(data);
+  scalePreview();
+}
+
+function scalePreview() {
+  const wrapper = document.getElementById('preview-wrapper');
+  const scaler = document.getElementById('preview-scaler');
+  if (!wrapper || !scaler) return;
+  const wrapperWidth = wrapper.clientWidth || 600;
+  const scale = wrapperWidth / 816;
+  scaler.style.transform = `scale(${scale})`;
+  scaler.style.width = '816px';
+  const docEl = scaler.querySelector('#doc');
+  const docH = docEl ? docEl.offsetHeight : 1056;
+  wrapper.style.height = Math.round(docH * scale) + 'px';
+}
+
+// ─── PDF Download ─────────────────────────────────────────────────────────────
+async function downloadPDF() {
+  const btn = document.getElementById('download-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Generating PDF…';
+
+  try {
+    const data = getFormData();
+    const container = document.getElementById('doc-for-pdf');
+    container.innerHTML = buildDocHTML(data);
+
+    // Inject Sacramento font into the off-screen doc
+    const docEl = container.querySelector('#doc');
+
+    // Wait a tick for images/fonts
+    await new Promise(r => setTimeout(r, 400));
+
+    const canvas = await html2canvas(docEl, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      width: 816,
+      windowWidth: 816,
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+
+    const pdfW = pdf.internal.pageSize.getWidth();   // 612pt
+    const pdfH = pdf.internal.pageSize.getHeight();  // 792pt
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+    // Scale canvas to fit letter
+    const ratio = canvas.height / canvas.width;
+    const imgH = pdfW * ratio;
+
+    if (imgH <= pdfH) {
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, imgH);
+    } else {
+      // Multi-page if needed
+      let y = 0;
+      const srcH = canvas.width * (pdfH / pdfW);
+      while (y < canvas.height) {
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = canvas.width;
+        tmpCanvas.height = Math.min(srcH, canvas.height - y);
+        const ctx = tmpCanvas.getContext('2d');
+        ctx.drawImage(canvas, 0, y, canvas.width, tmpCanvas.height, 0, 0, canvas.width, tmpCanvas.height);
+        if (y > 0) pdf.addPage();
+        pdf.addImage(tmpCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfW, tmpCanvas.height * (pdfW / canvas.width));
+        y += srcH;
+      }
+    }
+
+    const custSlug = (data.custName || 'customer').replace(/[^a-z0-9]/gi, '_').replace(/_+/g, '_');
+    const filename = `${data.docType === 'receipt' ? 'Receipt' : 'Invoice'}-${data.number}-${custSlug}.pdf`;
+    pdf.save(filename);
+  } catch (err) {
+    console.error(err);
+    alert('PDF generation failed. See console for details.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Download PDF';
+    document.getElementById('doc-for-pdf').innerHTML = '';
+  }
+}
+</script>
+</body>
+</html>
