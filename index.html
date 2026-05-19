@@ -129,7 +129,6 @@
     margin-top: 40px;
   }
 
-  /* paid-stamp now rendered inline in buildDocHTML */
 
   .logo-img {
     width: 200px;
@@ -567,13 +566,18 @@ function buildDocHTML(data) {
         <span style="font-size:22px;font-weight:900;color:#1e3a5f;text-align:right">${formatMoney(total)}</span>
       </div>
 
-      <!-- PAID stamp: sits inline below the total row, right-aligned -->
+      <!-- PAID stamp: SVG avoids html2canvas CSS-transform double-render bug -->
       ${data.paid ? `
-      <div style="display:flex;justify-content:flex-end;margin-top:20px;margin-right:14px">
-        <div style="border:5px solid #c0392b;color:#c0392b;font-size:38px;font-weight:900;
-             letter-spacing:8px;padding:6px 18px;text-transform:uppercase;
-             transform:rotate(-15deg);opacity:0.82;display:inline-block;
-             font-family:Arial,Helvetica,sans-serif">PAID</div>
+      <div style="display:flex;justify-content:flex-end;margin-top:44px">
+        <svg xmlns="http://www.w3.org/2000/svg" width="260" height="130" viewBox="0 0 260 130">
+          <g transform="rotate(-15, 130, 65)">
+            <rect x="18" y="28" width="224" height="74" rx="2" fill="none"
+                  stroke="rgba(192,57,43,0.85)" stroke-width="5"/>
+            <text x="130" y="73" text-anchor="middle"
+                  font-family="Arial,Helvetica,sans-serif" font-size="36" font-weight="900"
+                  letter-spacing="6" fill="rgba(192,57,43,0.85)">PAID</text>
+          </g>
+        </svg>
       </div>` : '<div style="margin-top:20px"></div>'}
 
       <!-- Bottom: Thank You + optional T&C — pinned to bottom -->
